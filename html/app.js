@@ -2,7 +2,7 @@ const phone=document.getElementById('phone');
 const $=id=>document.getElementById(id);
 let self='',myNumber='',messages=[],contacts=[],history=[],callActive=false,selectedConversation='';
 let preferences={wallpaper:'aurora',brightness:85,darkMode:true,sounds:true,lockEnabled:true};
-let locked=false,notifications=[];
+let locked=false,notifications=[],layout=['dialer','messages','contacts','settings'];
 const post=(name,data={})=>fetch(`https://${GetParentResourceName()}/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
 const contactByNumber=n=>contacts.find(c=>c.number===n);
 const contactName=n=>contactByNumber(n)?.name||n;
@@ -26,7 +26,7 @@ function render(){
 function setTheme(theme){phone.classList.toggle('samsung',theme==='samsung');phone.classList.toggle('iphone',theme!=='samsung')}
 window.addEventListener('message',({data})=>{
  if(data.action==='visibility'){phone.classList.toggle('hidden',!data.visible);if(data.visible){page('home');setLocked(preferences.lockEnabled&&!callActive)}else{setLocked(false);$('notification-shade').classList.remove('open')}}
- if(data.action==='load'){self=data.data.citizenid;myNumber=data.data.number||'';messages=data.data.messages||[];contacts=data.data.contacts||[];history=data.data.history||[];$('my-number').textContent='Your number · '+(myNumber||'Unavailable');setTheme(data.data.theme);applyPreferences(data.data.preferences);render()}
+ if(data.action==='load'){self=data.data.citizenid;myNumber=data.data.number||'';messages=data.data.messages||[];contacts=data.data.contacts||[];history=data.data.history||[];$('my-number').textContent='Your number · '+(myNumber||'Unavailable');setTheme(data.data.theme);applyPreferences(data.data.preferences);applyHomeLayout(data.data.preferences?.home_layout);render()}
  if(data.action==='message'){messages.unshift(data.data);render();if(data.data.sender!==self){toast('New message',data.data.body.slice(0,90))}}
  if(data.action==='error')notice(data.message)
  if(data.action==='incoming'||data.action==='calling'){callActive=true;setLocked(false);page('call-screen');const incoming=data.action==='incoming';$('call-title').textContent=incoming?'Incoming call':'Calling…';$('call-number').textContent=contactName(data.data.number);$('call-avatar').replaceChildren(avatar(contactName(data.data.number),contactByNumber(data.data.number)?.photo));$('answer').style.display=incoming?'inline-block':'none';if(incoming)toast('Incoming call',contactName(data.data.number))}
@@ -42,7 +42,7 @@ $('save-contact').onclick=()=>{const name=$('contact-name').value.trim(),number=
 $('dial').onclick=()=>{const number=$('dial-number').value.trim();if(!phonePattern.test(number)){notice('Enter a 10-digit number');return}post('dial',{number})};
 $('answer').onclick=()=>post('answer');$('hangup').onclick=()=>post('hangup');
 document.addEventListener('keydown',e=>{if(e.key==='Escape')post('close')});
-setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})},10000);
+setInterval(updateClock,10000);
 
 function setLocked(value){
  locked=!!value;
@@ -55,6 +55,8 @@ function updateClock(){
  $('clock').textContent=now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  $('lock-time').textContent=now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  $('lock-date').textContent=now.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'});
+ $('widget-date').textContent=now.toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+ $('widget-time').textContent=now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
 }
 function addNotification(title,body){
  notifications.unshift({title:String(title).slice(0,80),body:String(body).slice(0,180),time:new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})});
@@ -65,6 +67,7 @@ function renderNotifications(){
  const list=$('notification-list');list.replaceChildren();
  if(!notifications.length){const empty=document.createElement('p');empty.textContent='No notifications';list.appendChild(empty)}
  notifications.forEach(n=>{const card=document.createElement('div');card.className='notification-item';const head=document.createElement('strong');head.textContent=n.title;const body=document.createElement('p');body.textContent=n.body;const time=document.createElement('small');time.textContent=n.time;card.append(head,body,time);list.appendChild(card)});
+ $('widget-notifications').textContent=notifications.length+' alert'+(notifications.length===1?'':'s');
  $('lock-preview').textContent=notifications.length?notifications[0].title+' · '+notifications[0].body:'No new notifications';
 }
 function applyPreferences(p){
@@ -94,8 +97,37 @@ document.querySelectorAll('[data-wallpaper]').forEach(b=>b.onclick=()=>{phone.da
 ['brightness','dark-mode','sounds','lock-enabled'].forEach(id=>$(id).addEventListener('change',savePreferences));
 $('brightness').addEventListener('input',()=>{$('brightness-value').textContent=$('brightness').value+'%'});
 $('unlock').onclick=()=>setLocked(false);
-$('shade-toggle').onclick=()=>{if(locked)return;$('notification-shade').classList.toggle('open')};
+$('shade-toggle').onclick=()=>{$('notification-shade').classList.toggle('open')};
+$('lock-notifications').onclick=()=>{$('notification-shade').classList.add('open')};
 $('close-shade').onclick=()=>$('notification-shade').classList.remove('open');
 $('clear-notifications').onclick=()=>{notifications=[];renderNotifications()};
 updateClock();
 renderNotifications();
+
+const appGrid=$('app-grid');
+function applyHomeLayout(saved){
+ const allowed=['dialer','messages','contacts','settings'];
+ const candidate=typeof saved==='string'?saved.split(','):saved;
+ layout=Array.isArray(candidate)&&candidate.length===4&&new Set(candidate).size===4&&candidate.every(x=>allowed.includes(x))?candidate:allowed;
+ const buttons=Object.fromEntries([...appGrid.querySelectorAll('[data-app]')].map(b=>[b.dataset.app,b]));
+ layout.forEach(name=>appGrid.appendChild(buttons[name]));
+}
+let dragging=null;
+appGrid.querySelectorAll('[data-app]').forEach(button=>{
+ button.draggable=true;
+ button.addEventListener('dragstart',e=>{dragging=button.dataset.app;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragging)});
+ button.addEventListener('dragover',e=>e.preventDefault());
+ button.addEventListener('drop',e=>{
+   e.preventDefault();
+   const target=button.dataset.app;
+   if(!dragging||dragging===target)return;
+   const from=layout.indexOf(dragging),to=layout.indexOf(target);
+   if(from<0||to<0)return;
+   layout.splice(from,1);layout.splice(to,0,dragging);
+   applyHomeLayout(layout);
+   post('saveHomeLayout',layout);
+   dragging=null;
+ });
+ button.addEventListener('dragend',()=>{dragging=null});
+});
+$('widget-notifications').parentElement.addEventListener('click',()=>{$('notification-shade').classList.add('open')});
