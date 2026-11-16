@@ -1,76 +1,132 @@
-local databaseReady = false
-local function initializeDatabase()
-    local statements = {
-        [[CREATE TABLE IF NOT EXISTS `agc_phone_settings` (
-            `citizenid` VARCHAR(64) NOT NULL,
-            `theme` VARCHAR(16) NOT NULL DEFAULT 'iphone',
-            PRIMARY KEY (`citizenid`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci]],
-        [[CREATE TABLE IF NOT EXISTS `agc_phone_messages` (
-            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `sender` VARCHAR(64) NOT NULL,
-            `recipient` VARCHAR(64) NOT NULL,
-            `body` VARCHAR(1000) NOT NULL,
-            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`),
-            KEY `idx_sender` (`sender`),
-            KEY `idx_recipient` (`recipient`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci]]
-    }
-    for i, sql in ipairs(statements) do
-        local ok, err = pcall(function() MySQL.query.await(sql) end)
-        if not ok then
-            print(('[agc-phone] Database installation failed at table %d: %s'):format(i, tostring(err)))
-            return
-        end
+local ready = false
+local calls, active = {}, {}
+local nextCall = 0
+local function cid(src)
+    if Config.Framework == 'qbox' or (Config.Framework == 'auto' and GetResourceState('qbx_core') == 'started') then
+        local p = exports.qbx_core:GetPlayer(src)
+        return p and p.PlayerData and p.PlayerData.citizenid
     end
-    databaseReady = true
-    print('[agc-phone] Database tables verified/installed automatically.')
+    if GetResourceState('qb-core') == 'started' then
+        local p = exports['qb-core']:GetCoreObject().Functions.GetPlayer(src)
+        return p and p.PlayerData and p.PlayerData.citizenid
+    end
+end
+local function online(id)
+    for _, p in ipairs(GetPlayers()) do
+        local src = tonumber(p)
+        if cid(src) == id then return src end
+    end
+end
+local function validNumber(n) return type(n) == 'string' and n:match('^%d%d%d%d%d%d%d%d%d%d$') ~= nil end
+local function numberFor(id)
+    local row = MySQL.single.await('SELECT number FROM agc_phone_numbers WHERE citizenid = ?', {id})
+    if row then return row.number end
+    for _ = 1, 30 do
+        local n = tostring(math.random(200, 989)) .. tostring(math.random(100,999)) .. tostring(math.random(1000,9999))
+        local ok, inserted = pcall(function()
+            return MySQL.insert.await('INSERT INTO agc_phone_numbers (citizenid,number) VALUES (?,?)', {id,n})
+        end)
+        if ok and inserted then return n end
+        row = MySQL.single.await('SELECT number FROM agc_phone_numbers WHERE citizenid = ?', {id})
+        if row then return row.number end
+    end
+    print('[agc-phone] Could not assign number to ' .. id)
 end
 CreateThread(function()
     while GetResourceState('oxmysql') ~= 'started' do Wait(500) end
-    initializeDatabase()
-end)
-local function citizenId(source)
-    if Config.Framework == 'qbox' or (Config.Framework == 'auto' and GetResourceState('qbx_core') == 'started') then
-        local player = exports.qbx_core:GetPlayer(source)
-        return player and player.PlayerData and player.PlayerData.citizenid
+    local schema = {
+        [[CREATE TABLE IF NOT EXISTS agc_phone_settings (citizenid VARCHAR(64) PRIMARY KEY, theme VARCHAR(16) NOT NULL DEFAULT 'iphone') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
+        [[CREATE TABLE IF NOT EXISTS agc_phone_numbers (citizenid VARCHAR(64) PRIMARY KEY, number VARCHAR(10) NOT NULL UNIQUE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
+        [[CREATE TABLE IF NOT EXISTS agc_phone_contacts (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, citizenid VARCHAR(64) NOT NULL, name VARCHAR(80) NOT NULL, number VARCHAR(10) NOT NULL, UNIQUE KEY owner_number(citizenid,number)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
+        [[CREATE TABLE IF NOT EXISTS agc_phone_messages (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, sender VARCHAR(64) NOT NULL, recipient VARCHAR(64) NOT NULL, body VARCHAR(1000) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_sender(sender), KEY idx_recipient(recipient)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
+        [[CREATE TABLE IF NOT EXISTS agc_phone_call_history (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, caller VARCHAR(64) NOT NULL, callee VARCHAR(64) NOT NULL, status VARCHAR(20) NOT NULL, started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_caller(caller), KEY idx_callee(callee)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]]
+    }
+    for i, sql in ipairs(schema) do
+        local ok, err = pcall(function() MySQL.query.await(sql) end)
+        if not ok then print(('[agc-phone] SQL setup failed at %d: %s'):format(i,err)); return end
     end
-    if Config.Framework == 'qbcore' or Config.Framework == 'auto' then
-        local core = exports['qb-core']:GetCoreObject()
-        local player = core.Functions.GetPlayer(source)
-        return player and player.PlayerData and player.PlayerData.citizenid
+    ready = true
+    print('[agc-phone] Database tables verified/installed automatically.')
+end)
+local function load(src)
+    if not ready then return end
+    local id = cid(src)
+    if not id then return end
+    local num = numberFor(id)
+    local theme = MySQL.scalar.await('SELECT theme FROM agc_phone_settings WHERE citizenid=?',{id}) or 'iphone'
+    local contacts = MySQL.query.await('SELECT id,name,number FROM agc_phone_contacts WHERE citizenid=? ORDER BY name',{id})
+    local messages = MySQL.query.await('SELECT id,sender,recipient,body,created_at FROM agc_phone_messages WHERE sender=? OR recipient=? ORDER BY id DESC LIMIT 100',{id,id})
+    local history = MySQL.query.await('SELECT id,caller,callee,status,started_at FROM agc_phone_call_history WHERE caller=? OR callee=? ORDER BY id DESC LIMIT 30',{id,id})
+    TriggerClientEvent('agc-phone:client:load',src,{citizenid=id,number=num,theme=theme,contacts=contacts,messages=messages,history=history})
+end
+RegisterNetEvent('agc-phone:server:load',function() load(source) end)
+RegisterNetEvent('agc-phone:server:saveTheme',function(theme)
+    local id=cid(source)
+    if not ready or not id or (theme~='iphone' and theme~='samsung') then return end
+    MySQL.update.await('INSERT INTO agc_phone_settings (citizenid,theme) VALUES (?,?) ON DUPLICATE KEY UPDATE theme=VALUES(theme)',{id,theme})
+end)
+RegisterNetEvent('agc-phone:server:saveContact',function(data)
+    local src=source; local id=cid(src)
+    if not ready or not id or type(data)~='table' or not validNumber(data.number) or type(data.name)~='string' or #data.name<1 or #data.name>80 then return end
+    MySQL.update.await('INSERT INTO agc_phone_contacts (citizenid,name,number) VALUES (?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name)',{id,data.name,data.number})
+    load(src)
+end)
+RegisterNetEvent('agc-phone:server:deleteContact',function(number)
+    local src=source;local id=cid(src)
+    if not ready or not id or not validNumber(number) then return end
+    MySQL.update.await('DELETE FROM agc_phone_contacts WHERE citizenid=? AND number=?',{id,number})
+    load(src)
+end)
+RegisterNetEvent('agc-phone:server:sendMessage',function(data)
+    local src=source;local id=cid(src)
+    if not ready or not id or type(data)~='table' or not validNumber(data.recipient) or type(data.body)~='string' or #data.body<1 or #data.body>1000 then return end
+    local recipient=MySQL.scalar.await('SELECT citizenid FROM agc_phone_numbers WHERE number=?',{data.recipient})
+    if not recipient then TriggerClientEvent('agc-phone:client:error',src,'Phone number not found');return end
+    local mid=MySQL.insert.await('INSERT INTO agc_phone_messages (sender,recipient,body) VALUES (?,?,?)',{id,recipient,data.body})
+    local msg={id=mid,sender=id,recipient=recipient,body=data.body}
+    TriggerClientEvent('agc-phone:client:message',src,msg)
+    local target=online(recipient)
+    if target and target~=src then TriggerClientEvent('agc-phone:client:message',target,msg) end
+end)
+local function finish(callId,status)
+    local call=calls[callId];if not call then return end
+    calls[callId]=nil;active[call.a]=nil;active[call.b]=nil
+    MySQL.insert.await('INSERT INTO agc_phone_call_history (caller,callee,status) VALUES (?,?,?)',{call.aid,call.bid,status})
+    for _,src in ipairs({call.a,call.b}) do
+        if GetPlayerName(src) then TriggerClientEvent('agc-phone:client:callEnded',src) end
     end
 end
-local function validTheme(t) return t == 'iphone' or t == 'samsung' end
-RegisterNetEvent('agc-phone:server:load', function()
-    if not databaseReady then return end
-    local src = source
-    local id = citizenId(src)
-    if not id then return end
-    local row = MySQL.single.await('SELECT theme FROM agc_phone_settings WHERE citizenid = ?', {id})
-    local messages = MySQL.query.await('SELECT id, sender, recipient, body, created_at FROM agc_phone_messages WHERE sender = ? OR recipient = ? ORDER BY id DESC LIMIT 100', {id,id})
-    TriggerClientEvent('agc-phone:client:load', src, {theme = row and row.theme or Config.DefaultTheme, messages = messages or {}, citizenid = id})
+RegisterNetEvent('agc-phone:server:dial',function(number)
+    local src=source;local id=cid(src)
+    if not ready or not id or not validNumber(number) or active[src] then return end
+    local to=MySQL.scalar.await('SELECT citizenid FROM agc_phone_numbers WHERE number=?',{number})
+    if not to or to==id then TriggerClientEvent('agc-phone:client:error',src,'Number unavailable');return end
+    local dst=online(to)
+    if not dst or active[dst] then TriggerClientEvent('agc-phone:client:error',src,'Line unavailable');return end
+    nextCall=nextCall+1
+    local callId=nextCall
+    calls[callId]={a=src,b=dst,aid=id,bid=to,accepted=false}
+    active[src]=callId;active[dst]=callId
+    TriggerClientEvent('agc-phone:client:calling',src,{number=number})
+    TriggerClientEvent('agc-phone:client:incoming',dst,{number=numberFor(id)})
+    SetTimeout(30000,function()
+        local c=calls[callId]
+        if c and not c.accepted then finish(callId,'missed') end
+    end)
 end)
-RegisterNetEvent('agc-phone:server:saveTheme', function(theme)
-    if not databaseReady then return end
-    local id = citizenId(source)
-    if not id or not validTheme(theme) then return end
-    MySQL.update.await('INSERT INTO agc_phone_settings (citizenid,theme) VALUES (?,?) ON DUPLICATE KEY UPDATE theme = VALUES(theme)', {id,theme})
+RegisterNetEvent('agc-phone:server:answer',function()
+    local src=source;local callId=active[src];local c=callId and calls[callId]
+    if not c or c.b~=src or c.accepted then return end
+    c.accepted=true
+    local channel=100000+callId
+    TriggerClientEvent('agc-phone:client:connected',c.a,channel)
+    TriggerClientEvent('agc-phone:client:connected',c.b,channel)
 end)
-RegisterNetEvent('agc-phone:server:sendMessage', function(data)
-    if not databaseReady then return end
-    local src = source
-    local id = citizenId(src)
-    if not id or type(data) ~= 'table' then return end
-    local to = data.recipient
-    local body = data.body
-    if type(to) ~= 'string' or #to < 1 or #to > 64 or type(body) ~= 'string' or #body < 1 or #body > 1000 then return end
-    local msgId = MySQL.insert.await('INSERT INTO agc_phone_messages (sender,recipient,body) VALUES (?,?,?)', {id,to,body})
-    local message = {id=msgId,sender=id,recipient=to,body=body}
-    TriggerClientEvent('agc-phone:client:message', src, message)
-    for _, player in ipairs(GetPlayers()) do
-        local target = tonumber(player)
-        if target ~= src and citizenId(target) == to then TriggerClientEvent('agc-phone:client:message',target,message) end
-    end
+RegisterNetEvent('agc-phone:server:hangup',function()
+    local src=source;local callId=active[src];local c=callId and calls[callId]
+    if c then finish(callId,c.accepted and 'completed' or 'declined') end
+end)
+AddEventHandler('playerDropped',function()
+    local callId=active[source];local c=callId and calls[callId]
+    if c then finish(callId,'disconnected') end
 end)
