@@ -1,1 +1,40 @@
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:transparent;color:#fff}button,input,textarea{font:inherit}button{cursor:pointer;border:0}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #7db6ff}.hidden{display:none!important}#phone{position:absolute;right:4%;bottom:4%;width:350px;height:700px}.shell{height:100%;border:7px solid #15171e;border-radius:49px;background:radial-gradient(ellipse at 70% 12%,#6074d8 0%,transparent 38%),linear-gradient(150deg,#28375e,#111525 60%,#25234e);box-shadow:0 25px 85px #000a,inset 0 0 1px #fff8;overflow:hidden;padding:18px 18px;position:relative}header{display:flex;justify-content:space-between;padding:3px 13px;font-size:12px;font-weight:700}.island{position:absolute;top:10px;left:calc(50% - 48px);width:96px;height:24px;background:#080b11;border-radius:30px}#home{padding-top:125px}.home-greeting{font-size:14px;opacity:.8}h1{font-size:34px;letter-spacing:-1px;margin:6px 0}h2{font-size:25px;margin:47px 0 20px}h3{font-size:14px;font-weight:600;margin:20px 0 10px}#my-number{opacity:.85;font-size:13px}.apps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:52px}.apps button{display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:78px;border-radius:19px;background:#ffffff2d;backdrop-filter:blur(10px);font-size:28px;color:#fff}.apps small{font-size:10px;margin-top:5px}.page{display:none;max-height:540px;overflow-y:auto;scrollbar-width:thin}.page.active{display:block}footer{position:absolute;bottom:17px;left:20px;right:20px;display:flex;justify-content:space-between}footer button,#send,#dial,#save-contact,#answer,#hangup,.choice{background:#ffffff30;color:white;padding:10px 14px;border-radius:13px}#dial,#send,#save-contact{background:#367cf0}#answer{background:#1a9f6b}#hangup{background:#dc4255}.choice{display:block;width:100%;margin:10px 0;text-align:left}input,textarea{width:100%;padding:12px;background:#ffffff19;color:white;border:1px solid #ffffff38;border-radius:12px;margin:6px 0}input::placeholder,textarea::placeholder{color:#ffffff9c}textarea{height:75px;resize:none}#thread{height:185px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:8px 2px}.bubble{padding:10px 12px;border-radius:17px;max-width:90%;overflow-wrap:anywhere;font-size:13px}.bubble.mine{align-self:flex-end;background:#347be7}.bubble.theirs{align-self:flex-start;background:#ffffff29}.contact-row{display:flex;align-items:center;gap:7px;padding:9px 0;border-bottom:1px solid #ffffff1f}.contact-row button{background:#ffffff25;color:white;padding:7px 9px;border-radius:9px}.contact-label{flex:1;font-size:12px;min-width:0;overflow-wrap:anywhere}.avatar{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:40px;height:40px;border-radius:50%;background:linear-gradient(145deg,#8f7df1,#2a79bb);font-weight:700;overflow:hidden}.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.history-row,.conversation{display:block;width:100%;padding:11px 9px;margin:5px 0;border-radius:12px;background:#ffffff1d;color:white;text-align:left;font-size:12px}.call-avatar{display:flex;justify-content:center;margin:30px 0}.call-avatar .avatar{width:100px;height:100px;font-size:42px}#call-screen{text-align:center}#call-screen h2{margin-top:60px}#call-screen button{margin:12px 5px}#notice{position:absolute;bottom:65px;left:20px;right:20px;font-size:12px;text-align:center;pointer-events:none}#toast{position:absolute;top:44px;left:15px;right:15px;background:#202b44ee;backdrop-filter:blur(16px);padding:12px 15px;border:1px solid #ffffff35;border-radius:17px;z-index:5;opacity:0;transform:translateY(-12px);transition:.2s;pointer-events:none;font-size:12px}#toast.show{opacity:1;transform:translateY(0)}#toast p{margin:5px 0 0;opacity:.85}.samsung .shell{border-radius:32px;border-color:#24252c;background:radial-gradient(ellipse at 80% 5%,#346a8a 0%,transparent 43%),linear-gradient(160deg,#1a2839,#0c1220 70%,#193a50)}.samsung .island{width:13px;height:13px;left:calc(50% - 6px);top:17px}.samsung .apps button{border-radius:27px;background:#ffffff1c}.samsung h1{font-weight:500;letter-spacing:0}.samsung #dial,.samsung #send,.samsung #save-contact{background:#478ba7}
+
+
+/* v0.4 lock screen, wallpapers and notification center */
+#phone .shell{isolation:isolate}
+#phone .shell::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:var(--wallpaper,transparent);opacity:var(--screen-brightness,.85)}
+#phone[data-wallpaper="aurora"]{--wallpaper:radial-gradient(circle at 70% 20%,#7569dc 0%,transparent 45%),linear-gradient(145deg,#143a67,#261a51)}
+#phone[data-wallpaper="ocean"]{--wallpaper:radial-gradient(circle at 80% 25%,#31abc3 0%,transparent 45%),linear-gradient(150deg,#075f86,#081d3d)}
+#phone[data-wallpaper="sunset"]{--wallpaper:radial-gradient(circle at 70% 20%,#ff9b6c 0%,transparent 42%),linear-gradient(150deg,#9e3e77,#291b4a)}
+#phone[data-wallpaper="midnight"]{--wallpaper:radial-gradient(circle at 65% 18%,#475b90 0%,transparent 36%),linear-gradient(145deg,#080d1a,#101a32)}
+#phone.light-mode .shell{color:#14203a;background:#e8eef9}
+#phone.light-mode .shell::before{opacity:.32}
+#phone.light-mode .apps button,#phone.light-mode .choice,#phone.light-mode .setting-row,#phone.light-mode .contact-row button,#phone.light-mode .conversation{background:#ffffffaa;color:#14203a}
+#phone.light-mode input,#phone.light-mode textarea{background:#ffffffc9;color:#14203a;border-color:#33446655}
+#phone.light-mode input::placeholder,#phone.light-mode textarea::placeholder{color:#52617a}
+#phone.light-mode footer button{background:#d1dbea;color:#14203a}
+#phone.light-mode .bubble.theirs{background:#cbd8ea}
+.setting-heading{margin-top:20px;font-weight:650;font-size:13px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 8px;margin:8px 0;border-radius:13px;background:#ffffff1a;font-size:12px}
+.setting-row input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:#4b9bfa}
+.setting-row input[type=range]{flex:1;width:80px;min-width:40px;margin:0;accent-color:#4b9bfa}
+.setting-row output{min-width:35px;text-align:right}
+.wallpaper-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.wallpaper-choices button{padding:15px 6px;border:1px solid #ffffff55;border-radius:12px;background:#ffffff26;color:white}
+.wallpaper-choices button.selected{border:2px solid #85c9ff}
+.lock-screen{position:absolute;inset:0;z-index:10;display:none;align-items:center;flex-direction:column;text-align:center;padding:55px 16px 32px;background:radial-gradient(ellipse at 65% 15%,#ffffff30,transparent 50%),linear-gradient(160deg,#142b56ee,#1b173dee);backdrop-filter:blur(12px)}
+.lock-screen.open{display:flex}
+.lock-top{display:flex;justify-content:space-between;width:100%;font-size:12px;letter-spacing:2px}
+.lock-time{font-size:65px;font-weight:250;letter-spacing:-3px;margin-top:80px}
+.lock-date{font-size:16px;opacity:.9}
+.lock-preview{margin-top:55px;width:100%;padding:17px;border-radius:18px;background:#ffffff25;text-align:left;font-size:12px;overflow-wrap:anywhere}
+#unlock{margin-top:auto;padding:15px 22px;border-radius:24px;background:#ffffff30;color:#fff}
+.notification-shade{position:absolute;inset:35px 5px 54px;z-index:8;display:none;padding:18px 13px;background:#18243df5;border-radius:22px;overflow-y:auto}
+.notification-shade.open{display:block}
+.shade-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.shade-heading button,#close-shade{background:#ffffff2c;color:white;border-radius:10px;padding:8px}
+.notification-item{padding:12px;margin:8px 0;border-radius:13px;background:#ffffff1d;overflow-wrap:anywhere;font-size:12px}
+.notification-item p{margin:6px 0}.notification-item small{opacity:.7}
+.shade-toggle{position:absolute;top:36px;left:calc(50% - 18px);z-index:7;width:36px;height:19px;border-radius:0 0 13px 13px;background:#ffffff20;color:white}
+#phone .page{max-height:530px}
