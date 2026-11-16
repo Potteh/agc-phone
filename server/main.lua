@@ -11,6 +11,18 @@ local function cid(src)
         return p and p.PlayerData and p.PlayerData.citizenid
     end
 end
+local function down(src)
+    local player
+    if Config.Framework == 'qbox' or (Config.Framework == 'auto' and GetResourceState('qbx_core') == 'started') then
+        player = exports.qbx_core:GetPlayer(src)
+    elseif GetResourceState('qb-core') == 'started' then
+        player = exports['qb-core']:GetCoreObject().Functions.GetPlayer(src)
+    end
+    local m = player and player.PlayerData and player.PlayerData.metadata or {}
+    local state = Player(src).state
+    return m.isdead == true or m.inlaststand == true or m.isDead == true or m.inLaststand == true
+        or state.isDead == true or state.dead == true or state.inLaststand == true or state.laststand == true
+end
 local function online(id)
     for _, p in ipairs(GetPlayers()) do
         local src = tonumber(p)
@@ -49,7 +61,7 @@ CreateThread(function()
     print('[agc-phone] Database tables verified/installed automatically.')
 end)
 local function load(src)
-    if not ready then return end
+    if not ready or down(src) then return end
     local id = cid(src)
     if not id then return end
     local num = numberFor(id)
@@ -62,18 +74,18 @@ end
 RegisterNetEvent('agc-phone:server:load',function() load(source) end)
 RegisterNetEvent('agc-phone:server:saveTheme',function(theme)
     local id=cid(source)
-    if not ready or not id or (theme~='iphone' and theme~='samsung') then return end
+    if not ready or down(source) or not id or (theme~='iphone' and theme~='samsung') then return end
     MySQL.update.await('INSERT INTO agc_phone_settings (citizenid,theme) VALUES (?,?) ON DUPLICATE KEY UPDATE theme=VALUES(theme)',{id,theme})
 end)
 RegisterNetEvent('agc-phone:server:saveContact',function(data)
     local src=source; local id=cid(src)
-    if not ready or not id or type(data)~='table' or not validNumber(data.number) or type(data.name)~='string' or #data.name<1 or #data.name>80 then return end
+    if not ready or down(src) or not id or type(data)~='table' or not validNumber(data.number) or type(data.name)~='string' or #data.name<1 or #data.name>80 then return end
     MySQL.update.await('INSERT INTO agc_phone_contacts (citizenid,name,number) VALUES (?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name)',{id,data.name,data.number})
     load(src)
 end)
 RegisterNetEvent('agc-phone:server:deleteContact',function(number)
     local src=source;local id=cid(src)
-    if not ready or not id or not validNumber(number) then return end
+    if not ready or down(src) or not id or not validNumber(number) then return end
     MySQL.update.await('DELETE FROM agc_phone_contacts WHERE citizenid=? AND number=?',{id,number})
     load(src)
 end)
@@ -98,11 +110,11 @@ local function finish(callId,status)
 end
 RegisterNetEvent('agc-phone:server:dial',function(number)
     local src=source;local id=cid(src)
-    if not ready or not id or not validNumber(number) or active[src] then return end
+    if not ready or down(src) or not id or not validNumber(number) or active[src] then return end
     local to=MySQL.scalar.await('SELECT citizenid FROM agc_phone_numbers WHERE number=?',{number})
     if not to or to==id then TriggerClientEvent('agc-phone:client:error',src,'Number unavailable');return end
     local dst=online(to)
-    if not dst or active[dst] then TriggerClientEvent('agc-phone:client:error',src,'Line unavailable');return end
+    if not dst or active[dst] or down(dst) then TriggerClientEvent('agc-phone:client:error',src,'Line unavailable');return end
     nextCall=nextCall+1
     local callId=nextCall
     calls[callId]={a=src,b=dst,aid=id,bid=to,accepted=false}
@@ -117,6 +129,7 @@ end)
 RegisterNetEvent('agc-phone:server:answer',function()
     local src=source;local callId=active[src];local c=callId and calls[callId]
     if not c or c.b~=src or c.accepted then return end
+    if down(src) or down(c.a) then finish(callId,'unavailable');return end
     c.accepted=true
     local channel=100000+callId
     TriggerClientEvent('agc-phone:client:connected',c.a,channel)
