@@ -48,6 +48,7 @@ CreateThread(function()
     while GetResourceState('oxmysql') ~= 'started' do Wait(500) end
     local schema = {
         [[CREATE TABLE IF NOT EXISTS agc_phone_settings (citizenid VARCHAR(64) PRIMARY KEY, theme VARCHAR(16) NOT NULL DEFAULT 'iphone') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
+        [[CREATE TABLE IF NOT EXISTS agc_phone_preferences (citizenid VARCHAR(64) PRIMARY KEY, wallpaper VARCHAR(24) NOT NULL DEFAULT 'aurora', brightness TINYINT UNSIGNED NOT NULL DEFAULT 85, dark_mode TINYINT(1) NOT NULL DEFAULT 1, sounds TINYINT(1) NOT NULL DEFAULT 1, lock_enabled TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
         [[CREATE TABLE IF NOT EXISTS agc_phone_numbers (citizenid VARCHAR(64) PRIMARY KEY, number VARCHAR(10) NOT NULL UNIQUE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
         [[CREATE TABLE IF NOT EXISTS agc_phone_contacts (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, citizenid VARCHAR(64) NOT NULL, name VARCHAR(80) NOT NULL, number VARCHAR(10) NOT NULL, UNIQUE KEY owner_number(citizenid,number)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
         [[CREATE TABLE IF NOT EXISTS agc_phone_messages (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, sender VARCHAR(64) NOT NULL, recipient VARCHAR(64) NOT NULL, body VARCHAR(1000) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_sender(sender), KEY idx_recipient(recipient)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
@@ -71,16 +72,32 @@ local function load(src)
     if not id then return end
     local num = numberFor(id)
     local theme = MySQL.scalar.await('SELECT theme FROM agc_phone_settings WHERE citizenid=?',{id}) or 'iphone'
+    local preferences = MySQL.single.await('SELECT wallpaper,brightness,dark_mode,sounds,lock_enabled FROM agc_phone_preferences WHERE citizenid=?',{id}) or {wallpaper='aurora',brightness=85,dark_mode=1,sounds=1,lock_enabled=1}
     local contacts = MySQL.query.await('SELECT id,name,number,photo FROM agc_phone_contacts WHERE citizenid=? ORDER BY name',{id})
     local messages = MySQL.query.await('SELECT id,sender,recipient,body,created_at FROM agc_phone_messages WHERE sender=? OR recipient=? ORDER BY id DESC LIMIT 100',{id,id})
     local history = MySQL.query.await('SELECT id,caller,callee,status,started_at FROM agc_phone_call_history WHERE caller=? OR callee=? ORDER BY id DESC LIMIT 30',{id,id})
-    TriggerClientEvent('agc-phone:client:load',src,{citizenid=id,number=num,theme=theme,contacts=contacts,messages=messages,history=history})
+    TriggerClientEvent('agc-phone:client:load',src,{citizenid=id,number=num,theme=theme,preferences=preferences,contacts=contacts,messages=messages,history=history})
 end
 RegisterNetEvent('agc-phone:server:load',function() load(source) end)
 RegisterNetEvent('agc-phone:server:saveTheme',function(theme)
     local id=cid(source)
     if not ready or down(source) or not id or (theme~='iphone' and theme~='samsung') then return end
     MySQL.update.await('INSERT INTO agc_phone_settings (citizenid,theme) VALUES (?,?) ON DUPLICATE KEY UPDATE theme=VALUES(theme)',{id,theme})
+end)
+RegisterNetEvent('agc-phone:server:savePreferences',function(data)
+    local src=source
+    local id=cid(src)
+    if not ready or not id or down(src) or type(data)~='table' then return end
+    local wallpapers={aurora=true,ocean=true,sunset=true,midnight=true}
+    if not wallpapers[data.wallpaper] then return end
+    local brightness=tonumber(data.brightness)
+    if not brightness or brightness~=math.floor(brightness) or brightness<35 or brightness>100 then return end
+    local function bool(v) return v==true or v==false end
+    if not bool(data.darkMode) or not bool(data.sounds) or not bool(data.lockEnabled) then return end
+    MySQL.update.await([[INSERT INTO agc_phone_preferences (citizenid,wallpaper,brightness,dark_mode,sounds,lock_enabled)
+        VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE wallpaper=VALUES(wallpaper),brightness=VALUES(brightness),
+        dark_mode=VALUES(dark_mode),sounds=VALUES(sounds),lock_enabled=VALUES(lock_enabled)]],
+        {id,data.wallpaper,brightness,data.darkMode and 1 or 0,data.sounds and 1 or 0,data.lockEnabled and 1 or 0})
 end)
 RegisterNetEvent('agc-phone:server:saveContact',function(data)
     local src=source; local id=cid(src)
