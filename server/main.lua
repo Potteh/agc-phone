@@ -63,6 +63,11 @@ CreateThread(function()
         local ok, err = pcall(function() MySQL.query.await('ALTER TABLE agc_phone_contacts ADD COLUMN photo VARCHAR(500) NULL') end)
         if not ok then print('[agc-phone] Photo migration failed: ' .. tostring(err)); return end
     end
+    local layoutColumn = MySQL.scalar.await([[SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'agc_phone_preferences' AND COLUMN_NAME = 'home_layout']])
+    if tonumber(layoutColumn) == 0 then
+        local ok, err = pcall(function() MySQL.query.await('ALTER TABLE agc_phone_preferences ADD COLUMN home_layout VARCHAR(255) NULL') end)
+        if not ok then print('[agc-phone] Home layout migration failed: ' .. tostring(err)); return end
+    end
     ready = true
     print('[agc-phone] Database tables verified/installed automatically.')
 end)
@@ -72,7 +77,7 @@ local function load(src)
     if not id then return end
     local num = numberFor(id)
     local theme = MySQL.scalar.await('SELECT theme FROM agc_phone_settings WHERE citizenid=?',{id}) or 'iphone'
-    local preferences = MySQL.single.await('SELECT wallpaper,brightness,dark_mode,sounds,lock_enabled FROM agc_phone_preferences WHERE citizenid=?',{id}) or {wallpaper='aurora',brightness=85,dark_mode=1,sounds=1,lock_enabled=1}
+    local preferences = MySQL.single.await('SELECT wallpaper,brightness,dark_mode,sounds,lock_enabled,home_layout FROM agc_phone_preferences WHERE citizenid=?',{id}) or {wallpaper='aurora',brightness=85,dark_mode=1,sounds=1,lock_enabled=1}
     local contacts = MySQL.query.await('SELECT id,name,number,photo FROM agc_phone_contacts WHERE citizenid=? ORDER BY name',{id})
     local messages = MySQL.query.await('SELECT id,sender,recipient,body,created_at FROM agc_phone_messages WHERE sender=? OR recipient=? ORDER BY id DESC LIMIT 100',{id,id})
     local history = MySQL.query.await('SELECT id,caller,callee,status,started_at FROM agc_phone_call_history WHERE caller=? OR callee=? ORDER BY id DESC LIMIT 30',{id,id})
@@ -98,6 +103,19 @@ RegisterNetEvent('agc-phone:server:savePreferences',function(data)
         VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE wallpaper=VALUES(wallpaper),brightness=VALUES(brightness),
         dark_mode=VALUES(dark_mode),sounds=VALUES(sounds),lock_enabled=VALUES(lock_enabled)]],
         {id,data.wallpaper,brightness,data.darkMode and 1 or 0,data.sounds and 1 or 0,data.lockEnabled and 1 or 0})
+end)
+RegisterNetEvent('agc-phone:server:saveHomeLayout',function(layout)
+    local src=source
+    local id=cid(src)
+    if not ready or not id or down(src) or type(layout)~='table' or #layout~=4 then return end
+    local allowed={dialer=true,messages=true,contacts=true,settings=true}
+    local seen={}
+    for _,app in ipairs(layout) do
+        if type(app)~='string' or not allowed[app] or seen[app] then return end
+        seen[app]=true
+    end
+    local encoded=table.concat(layout,',')
+    MySQL.update.await('INSERT INTO agc_phone_preferences (citizenid,home_layout) VALUES (?,?) ON DUPLICATE KEY UPDATE home_layout=VALUES(home_layout)',{id,encoded})
 end)
 RegisterNetEvent('agc-phone:server:saveContact',function(data)
     local src=source; local id=cid(src)
