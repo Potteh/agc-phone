@@ -38,3 +38,7 @@
 .notification-item p{margin:6px 0}.notification-item small{opacity:.7}
 .shade-toggle{position:absolute;top:36px;left:calc(50% - 18px);z-index:7;width:36px;height:19px;border-radius:0 0 13px 13px;background:#ffffff20;color:white}
 #phone .page{max-height:530px}
+
+#phone .shell{background:var(--wallpaper)!important}
+#phone.light-mode .shell{background:linear-gradient(#ffffffb8,#ffffffb8),var(--wallpaper)!important}
+#phone .shell::before{display:none}
