@@ -1,4 +1,4 @@
-# AGC Phone v0.3.0 — Development build
+# AGC Phone v0.4.0 — Development build
 
 A standalone QBCore/Qbox FiveM smartphone under development, with iPhone-inspired and Samsung-inspired styles.
 
@@ -12,7 +12,7 @@ A standalone QBCore/Qbox FiveM smartphone under development, with iPhone-inspire
 ## Install
 Place in resources/[local]/agc-phone and ensure oxmysql, your framework (qb-core or qbx_core), pma-voice, then agc-phone. SQL is created on startup; the MySQL account requires CREATE TABLE privileges.
 
-## Important limitations
+## v0.4 appearance features\n- Optional lock screen with unlock button (not a PIN or security mechanism).\n- Four preset wallpapers and a notification center for current-session events.\n- Brightness display setting, light/dark mode, and a stored notification sound preference (audio playback not yet implemented).\n- Appearance preferences are stored per character in a new automatically created SQL table.\n\n## Important limitations
 **Not ready to replace qb-phone in production.** No qb-phone event/export compatibility yet, no data migration, no item handling, and no advanced apps. The old SMS table stores citizen IDs, and old messages are not migrated to phone-number labels. Calls, NUI and database operations require testing on a live server. Disable the F1 keybind conflict before testing, but do not remove qb-phone from a production server yet.
 
 ## Test
