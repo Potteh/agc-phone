@@ -87,70 +87,7 @@ RegisterNetEvent('agc-phone:server:saveContact',function(data)
     if not ready or down(src) or not id or type(data)~='table' or not validNumber(data.number) or type(data.name)~='string' or #data.name<1 or #data.name>80 then return end
     local photo = data.photo
     if photo == '' then photo = nil end
-    if photo ~= nil and (type(photo) ~= 'string' or #photo > 500 or not photo:match('^https://[%w%._%-]+[%w%._%-%/?&=%%+#:]*
-    load(src)
-end)
-RegisterNetEvent('agc-phone:server:deleteContact',function(number)
-    local src=source;local id=cid(src)
-    if not ready or down(src) or not id or not validNumber(number) then return end
-    MySQL.update.await('DELETE FROM agc_phone_contacts WHERE citizenid=? AND number=?',{id,number})
-    load(src)
-end)
-RegisterNetEvent('agc-phone:server:sendMessage',function(data)
-    local src=source;local id=cid(src)
-    if not ready or down(src) or not id or type(data)~='table' or not validNumber(data.recipient) or type(data.body)~='string' or #data.body<1 or #data.body>1000 then return end
-    local recipient=MySQL.scalar.await('SELECT citizenid FROM agc_phone_numbers WHERE number=?',{data.recipient})
-    if not recipient then TriggerClientEvent('agc-phone:client:error',src,'Phone number not found');return end
-    local mid=MySQL.insert.await('INSERT INTO agc_phone_messages (sender,recipient,body) VALUES (?,?,?)',{id,recipient,data.body})
-    local msg={id=mid,sender=id,recipient=recipient,body=data.body}
-    TriggerClientEvent('agc-phone:client:message',src,msg)
-    local target=online(recipient)
-    if target and target~=src then TriggerClientEvent('agc-phone:client:message',target,msg) end
-end)
-local function finish(callId,status)
-    local call=calls[callId];if not call then return end
-    calls[callId]=nil;active[call.a]=nil;active[call.b]=nil
-    MySQL.insert.await('INSERT INTO agc_phone_call_history (caller,callee,status) VALUES (?,?,?)',{call.aid,call.bid,status})
-    for _,src in ipairs({call.a,call.b}) do
-        if GetPlayerName(src) then TriggerClientEvent('agc-phone:client:callEnded',src) end
-    end
-end
-RegisterNetEvent('agc-phone:server:dial',function(number)
-    local src=source;local id=cid(src)
-    if not ready or down(src) or not id or not validNumber(number) or active[src] then return end
-    local to=MySQL.scalar.await('SELECT citizenid FROM agc_phone_numbers WHERE number=?',{number})
-    if not to or to==id then TriggerClientEvent('agc-phone:client:error',src,'Number unavailable');return end
-    local dst=online(to)
-    if not dst or active[dst] or down(dst) then TriggerClientEvent('agc-phone:client:error',src,'Line unavailable');return end
-    nextCall=nextCall+1
-    local callId=nextCall
-    calls[callId]={a=src,b=dst,aid=id,bid=to,accepted=false}
-    active[src]=callId;active[dst]=callId
-    TriggerClientEvent('agc-phone:client:calling',src,{number=number})
-    TriggerClientEvent('agc-phone:client:incoming',dst,{number=numberFor(id)})
-    SetTimeout(30000,function()
-        local c=calls[callId]
-        if c and not c.accepted then finish(callId,'missed') end
-    end)
-end)
-RegisterNetEvent('agc-phone:server:answer',function()
-    local src=source;local callId=active[src];local c=callId and calls[callId]
-    if not c or c.b~=src or c.accepted then return end
-    if down(src) or down(c.a) then finish(callId,'unavailable');return end
-    c.accepted=true
-    local channel=100000+callId
-    TriggerClientEvent('agc-phone:client:connected',c.a,channel)
-    TriggerClientEvent('agc-phone:client:connected',c.b,channel)
-end)
-RegisterNetEvent('agc-phone:server:hangup',function()
-    local src=source;local callId=active[src];local c=callId and calls[callId]
-    if c then finish(callId,c.accepted and 'completed' or 'declined') end
-end)
-AddEventHandler('playerDropped',function()
-    local callId=active[source];local c=callId and calls[callId]
-    if c then finish(callId,'disconnected') end
-end)
-)) then return end
+    if photo ~= nil and (type(photo) ~= 'string' or #photo > 500 or not photo:match('^https://[%w%.%-]+/?.*$')) then return end
     MySQL.update.await('INSERT INTO agc_phone_contacts (citizenid,name,number,photo) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),photo=VALUES(photo)',{id,data.name,data.number,photo})
     load(src)
 end)
@@ -162,7 +99,7 @@ RegisterNetEvent('agc-phone:server:deleteContact',function(number)
 end)
 RegisterNetEvent('agc-phone:server:sendMessage',function(data)
     local src=source;local id=cid(src)
-    if not ready or not id or type(data)~='table' or not validNumber(data.recipient) or type(data.body)~='string' or #data.body<1 or #data.body>1000 then return end
+    if not ready or down(src) or not id or type(data)~='table' or not validNumber(data.recipient) or type(data.body)~='string' or #data.body<1 or #data.body>1000 then return end
     local recipient=MySQL.scalar.await('SELECT citizenid FROM agc_phone_numbers WHERE number=?',{data.recipient})
     if not recipient then TriggerClientEvent('agc-phone:client:error',src,'Phone number not found');return end
     local mid=MySQL.insert.await('INSERT INTO agc_phone_messages (sender,recipient,body) VALUES (?,?,?)',{id,recipient,data.body})
