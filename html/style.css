@@ -42,3 +42,5 @@
 #phone .shell{background:var(--wallpaper)!important}
 #phone.light-mode .shell{background:linear-gradient(#ffffffb8,#ffffffb8),var(--wallpaper)!important}
 #phone .shell::before{display:none}
+
+#phone .shell{filter:brightness(var(--screen-brightness,1))}
