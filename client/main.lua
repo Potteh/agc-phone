@@ -24,7 +24,7 @@ end
 RegisterCommand(Config.Command,function() toggle(not opened) end,false)
 RegisterKeyMapping(Config.Command,'Open AGC Phone','keyboard','F1')
 RegisterNUICallback('close',function(_,cb) toggle(false);cb({ok=true}) end)
-local actions={saveTheme='saveTheme',savePreferences='savePreferences',sendMessage='sendMessage',saveContact='saveContact',deleteContact='deleteContact',dial='dial',answer='answer',hangup='hangup'}
+local actions={saveTheme='saveTheme',savePreferences='savePreferences',saveHomeLayout='saveHomeLayout',sendMessage='sendMessage',saveContact='saveContact',deleteContact='deleteContact',dial='dial',answer='answer',hangup='hangup'}
 for name,event in pairs(actions) do
     RegisterNUICallback(name,function(data,cb)
         local payload=data
