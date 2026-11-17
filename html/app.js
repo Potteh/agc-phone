@@ -33,7 +33,7 @@ window.addEventListener('message',({data})=>{
  if(data.action==='connected'){$('call-title').textContent='Connected';$('answer').style.display='none'}
  if(data.action==='callEnded'){callActive=false;page('home');notice('Call ended')}
 });
-document.querySelectorAll('[data-app]').forEach(b=>b.onclick=()=>page(b.dataset.app));
+document.querySelectorAll('[data-app]').forEach(b=>b.onclick=()=>{if(!editMode)page(b.dataset.app)});
 document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{setTheme(b.dataset.theme);post('saveTheme',{theme:b.dataset.theme})});
 $('back').onclick=()=>{if(!callActive)page('home');else notice('Hang up to leave the call')};
 $('close').onclick=()=>post('close');
