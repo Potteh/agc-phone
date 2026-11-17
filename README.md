@@ -1,19 +1,36 @@
-# AGC Phone v0.5.0 — Development build
+# AGC Phone v0.6.0 — Development build
 
-A standalone QBCore/Qbox FiveM smartphone under development, with iPhone-inspired and Samsung-inspired styles.
+A standalone QBCore/Qbox FiveM smartphone with iPhone-inspired and Samsung-inspired styles.
 
 ## Implemented
-- Automatic SQL creation for settings, numbers, contacts, messages and call history (oxmysql).
-- Automatically assigned persistent 10-digit character phone numbers.
-- Contact saving/deletion with optional HTTPS photo URL, basic SMS to phone numbers, offline message persistence.\n- Redesigned iPhone/Galaxy UI, conversation filtering, contact avatars, and in-phone message/call notifications.\n- Automatic safe migration adds the optional contact photo column to existing databases.
-- Incoming/outgoing calls using pma-voice call channels; hang up, answer and timeout.
-- Theme switching and F1 /phone toggle.
+- Automatic SQL creation for settings, numbers, contacts, messages, and call history using oxmysql.
+- Persistent 10-digit phone numbers per character.
+- Contacts with optional HTTPS photo URLs.
+- SMS storage and incoming/outgoing call flow using pma-voice.
+- iPhone and Samsung themes, lock screen, four wallpapers, brightness, and light/dark mode.
+- Per-character home-screen app ordering.
+- Home widgets for date, time, and notification count.
+- Session notification center, including access from the lock screen.
+- v0.6 Control Center with quick toggles for dark mode, sound preference, lock screen, notifications, brightness, and wallpaper.
+- Home Screen Edit mode: tap Edit, select two app icons to swap their positions, then Done. Desktop drag-and-drop remains available.
+- Client and server restrictions against phone use while dead or in last stand.
 
 ## Install
-Place in resources/[local]/agc-phone and ensure oxmysql, your framework (qb-core or qbx_core), pma-voice, then agc-phone. SQL is created on startup; the MySQL account requires CREATE TABLE privileges.
+Place this resource in `resources/[local]/agc-phone`. Ensure oxmysql, your framework (qb-core or qbx_core), pma-voice, and then agc-phone. SQL tables and migrations are applied automatically; the database user needs CREATE/ALTER privileges.
 
-## v0.4 appearance features\n- Optional lock screen with unlock button (not a PIN or security mechanism).\n- Four preset wallpapers and a notification center for current-session events.\n- Brightness display setting, light/dark mode, and a stored notification sound preference (audio playback not yet implemented).\n- Appearance preferences are stored per character in a new automatically created SQL table.\n\n## v0.5 interface features\n- Rearrange the four existing home-screen app icons using desktop drag-and-drop; layout is stored per character.\n- Home-screen date/time and notification count widgets.\n- Notification center accessible from the lock screen; notifications remain session-only.\n- Grouped settings layout for appearance, notifications, and device style.\n- Existing phone apps, calls and messages are preserved; multiplayer testing remains pending.\n\n## Important limitations
-**Not ready to replace qb-phone in production.** No qb-phone event/export compatibility yet, no data migration, no item handling, and no advanced apps. The old SMS table stores citizen IDs, and old messages are not migrated to phone-number labels. Calls, NUI and database operations require testing on a live server. Disable the F1 keybind conflict before testing, but do not remove qb-phone from a production server yet.
+## v0.6.0 notes
+The Control Center and home-screen edit mode are interface features. The sound toggle currently stores a preference; it does not yet play notification audio. Notifications remain in the current NUI session and are not yet persisted or delivered while the phone UI is closed. Home icon order is stored per character.
+
+## Important limitations
+**Not ready to replace qb-phone in production.** qb-phone event/export compatibility, data migration, item handling, and advanced apps are not complete. Calls and messaging still need multiplayer testing on a live server. Keep qb-phone installed until compatibility and migration are verified.
 
 ## Test
-Use two characters on separate clients, open /phone, note both assigned numbers, add a contact, send an SMS, place a call, answer and hang up, restart the resource and check persistence. Watch server console for database errors.
+1. Update the resource and restart it.
+2. Open the phone and use the top-right Control Center button.
+3. Toggle dark mode, sound preference, lock screen, brightness, and wallpaper.
+4. Close Control Center and verify the corresponding settings page reflects the changes.
+5. Use Edit Home Screen, select two icons to swap, tap Done, close/reopen the phone, and verify the order persists.
+6. Test notification center access from both the unlocked screen and lock screen.
+7. Watch the server console for SQL or NUI errors.
+
+Calling and SMS should be tested with two characters on separate clients when available.
