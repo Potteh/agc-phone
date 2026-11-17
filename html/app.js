@@ -82,6 +82,8 @@ function applyPreferences(p){
  phone.classList.toggle('light-mode',!preferences.darkMode);
  phone.style.setProperty('--screen-brightness',String(preferences.brightness/100));
  $('brightness').value=preferences.brightness;
+ $('quick-brightness').value=preferences.brightness;$('quick-brightness-value').textContent=preferences.brightness+'%';$('quick-wallpaper').value=preferences.wallpaper;
+ $('quick-dark').classList.toggle('enabled',preferences.darkMode);$('quick-sound').classList.toggle('enabled',preferences.sounds);$('quick-lock').classList.toggle('enabled',preferences.lockEnabled);
  $('brightness-value').textContent=preferences.brightness+'%';
  $('dark-mode').checked=preferences.darkMode;
  $('sounds').checked=preferences.sounds;
@@ -95,7 +97,15 @@ function savePreferences(){
 }
 document.querySelectorAll('[data-wallpaper]').forEach(b=>b.onclick=()=>{phone.dataset.wallpaper=b.dataset.wallpaper;savePreferences()});
 ['brightness','dark-mode','sounds','lock-enabled'].forEach(id=>$(id).addEventListener('change',savePreferences));
-$('brightness').addEventListener('input',()=>{$('brightness-value').textContent=$('brightness').value+'%'});
+$('brightness').addEventListener('input',()=>{$('brightness-value').textContent=$('brightness').value+'%';$('quick-brightness').value=$('brightness').value;$('quick-brightness-value').textContent=$('brightness').value+'%'});
+$('quick-brightness').addEventListener('input',()=>{$('brightness').value=$('quick-brightness').value;$('brightness-value').textContent=$('brightness').value+'%';$('quick-brightness-value').textContent=$('brightness').value+'%';savePreferences()});
+$('quick-wallpaper').onchange=()=>{phone.dataset.wallpaper=$('quick-wallpaper').value;savePreferences()};
+$('quick-dark').onclick=()=>{$('dark-mode').checked=!$('dark-mode').checked;savePreferences()};
+$('quick-sound').onclick=()=>{$('sounds').checked=!$('sounds').checked;savePreferences()};
+$('quick-lock').onclick=()=>{$('lock-enabled').checked=!$('lock-enabled').checked;savePreferences()};
+$('quick-notify').onclick=()=>{$('control-center').classList.remove('open');$('notification-shade').classList.add('open')};
+$('control-toggle').onclick=()=>{$('control-center').classList.toggle('open');$('notification-shade').classList.remove('open')};
+$('control-close').onclick=()=>$('control-center').classList.remove('open');
 $('unlock').onclick=()=>setLocked(false);
 $('shade-toggle').onclick=()=>{$('notification-shade').classList.toggle('open')};
 $('lock-notifications').onclick=()=>{$('notification-shade').classList.add('open')};
@@ -131,3 +141,22 @@ appGrid.querySelectorAll('[data-app]').forEach(button=>{
  button.addEventListener('dragend',()=>{dragging=null});
 });
 $('widget-notifications').parentElement.addEventListener('click',()=>{$('notification-shade').classList.add('open')});
+
+let editMode=false,firstSelected=null;
+$('edit-apps').onclick=()=>{
+ editMode=!editMode;firstSelected=null;
+ $('edit-apps').textContent=editMode?'Done':'Edit Home Screen';
+ appGrid.classList.toggle('editing',editMode);
+ appGrid.querySelectorAll('[data-app]').forEach(b=>b.classList.toggle('edit-icon',editMode));
+};
+appGrid.querySelectorAll('[data-app]').forEach(button=>{
+ button.addEventListener('click',e=>{
+  if(!editMode)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const current=button.dataset.app;
+  if(!firstSelected){firstSelected=current;button.classList.add('selected-icon');return}
+  const a=layout.indexOf(firstSelected),b=layout.indexOf(current);
+  if(a!==b&&a>=0&&b>=0){[layout[a],layout[b]]=[layout[b],layout[a]];applyHomeLayout(layout);post('saveHomeLayout',layout)}
+  firstSelected=null;appGrid.querySelectorAll('.selected-icon').forEach(x=>x.classList.remove('selected-icon'));
+ });
+});
